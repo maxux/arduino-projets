@@ -17,15 +17,19 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
 void setup(void) {
-  sensors.begin();
   Serial.begin(9600);
-
+  Serial.println("[+] initializing fridge sensors module");
+  printf_begin();
+  
+  sensors.begin();
+  
   pinMode(LED_BUILTIN, OUTPUT);
 
   radio.begin();
   radio.openWritingPipe(temp_listen_addr);
-  radio.setPALevel(RF24_PA_MAX);
+  radio.setPALevel(RF24_PA_MIN);
   radio.stopListening();
+  // radio.printPrettyDetails();
 }
 
 void sendstr(char *str) {
@@ -50,9 +54,11 @@ void loop(void) {
 
   float top = sensors.getTempCByIndex(1);
   int topi = top * 1000;
+  Serial.print("[+] temperature top: ");
   Serial.println(top);
   float bottom = sensors.getTempCByIndex(0);
   int bottomi = bottom * 1000;
+  Serial.print("[+] temperature bottom: ");
   Serial.println(bottom);
   
   sprintf(frame, "fridge-drink-top %d", topi);
@@ -61,5 +67,5 @@ void loop(void) {
   sprintf(frame, "fridge-drink-bottom %d", bottomi);
   sendstr(frame);
 
-  delay(200);
+  delay(5000);
 }
