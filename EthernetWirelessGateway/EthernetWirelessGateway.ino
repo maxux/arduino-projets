@@ -82,6 +82,9 @@ struct moth_ds18_t *frame_to_ds18(struct moth_ds18_t *target, char *message) {
     return NULL;
   }
 
+  memset(&mothdevice.deviceid, 0x00, 8);
+  target->deviceid[0] = 0x88;
+
   int temp = atoi(value + 1);
   target->temperature = __builtin_bswap32(temp);
 
@@ -99,6 +102,35 @@ struct moth_ds18_t *frame_to_ds18(struct moth_ds18_t *target, char *message) {
   return target;
 }
 
+struct moth_ds18_t *frame_to_generic_ds18(struct moth_ds18_t *target, char *message) {
+  char *value = strchr(message, ' ');
+  if(value == NULL) {
+    return NULL;
+  }
+
+  int temp = atoi(value + 1);
+  target->temperature = __builtin_bswap32(temp);
+
+  char parser[4];
+  memset(parser, 0, sizeof(parser));
+
+  strncpy(parser, message, 2);
+  Serial.print(parser);
+  target->deviceid[0] = strtoul(parser, NULL, 16);
+
+  for(int i = 1; i < 8; i++) {
+    strncpy(parser, message + 1 + (i * 2), 2);
+    Serial.print(parser);
+    target->deviceid[i] = strtoul(parser, NULL, 16);
+  }
+
+  Serial.print(": ");
+  Serial.println(temp);
+
+  return target;
+}
+
+/*
 struct moth_switch_t *frame_to_switch(struct moth_switch_t *target, char *message) {
   if(strncmp(message, "switch-powerdown", 16) == 0) {
     target->id = 1;
@@ -110,6 +142,7 @@ struct moth_switch_t *frame_to_switch(struct moth_switch_t *target, char *messag
   
   return target;
 }
+*/
 
 void loop() {
   if(radio.available()) {
@@ -129,6 +162,18 @@ void loop() {
       w5100.sendFrame(netbuffer, netlength);      
     }
 
+    if(strncmp(message, "ss ", 3) == 0) {
+      if(!frame_to_generic_ds18(&mothdevice, message + 3)) {
+        Serial.println("[-] invalid generic ds18 frame received");
+        return;
+      }
+  
+      memcpy(netbuffer + 15, &mothdevice, sizeof(struct moth_ds18_t));
+      netbuffer[14] = MONIETH_TYPE_DS18X20;
+      w5100.sendFrame(netbuffer, netlength);      
+    }
+
+    /*
     if(strncmp(message, "switch-", 7) == 0) {
       if(!frame_to_switch(&mothswitch, message)) {
         Serial.println("[-] invalid switch frame received");
@@ -139,6 +184,7 @@ void loop() {
       netbuffer[14] = MONIETH_TYPE_SWITCH;
       w5100.sendFrame(netbuffer, netlength);
     }
+    */
     
     digitalWrite(LED_BUILTIN, LOW);
   }
