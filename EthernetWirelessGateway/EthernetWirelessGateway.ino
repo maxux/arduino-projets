@@ -130,7 +130,6 @@ struct moth_ds18_t *frame_to_generic_ds18(struct moth_ds18_t *target, char *mess
   return target;
 }
 
-/*
 struct moth_switch_t *frame_to_switch(struct moth_switch_t *target, char *message) {
   if(strncmp(message, "switch-powerdown", 16) == 0) {
     target->id = 1;
@@ -142,7 +141,6 @@ struct moth_switch_t *frame_to_switch(struct moth_switch_t *target, char *messag
   
   return target;
 }
-*/
 
 void loop() {
   if(radio.available()) {
@@ -173,7 +171,6 @@ void loop() {
       w5100.sendFrame(netbuffer, netlength);      
     }
 
-    /*
     if(strncmp(message, "switch-", 7) == 0) {
       if(!frame_to_switch(&mothswitch, message)) {
         Serial.println("[-] invalid switch frame received");
@@ -184,7 +181,6 @@ void loop() {
       netbuffer[14] = MONIETH_TYPE_SWITCH;
       w5100.sendFrame(netbuffer, netlength);
     }
-    */
     
     digitalWrite(LED_BUILTIN, LOW);
   }
