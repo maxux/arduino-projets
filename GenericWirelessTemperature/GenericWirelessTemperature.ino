@@ -5,6 +5,9 @@
 #include <RF24_config.h>
 #include <RF24.h>
 
+#define HARD_RESET_MINUTES   60
+void (* hardreset) (void) = 0;
+
 #define ONE_WIRE_BUS 2
 
 #define SPI_CE   9
@@ -29,7 +32,7 @@ void setup(void) {
   radio.openWritingPipe(temp_listen_addr);
   radio.setPALevel(RF24_PA_MIN);
   radio.stopListening();
-  // radio.printPrettyDetails();
+  radio.printPrettyDetails();
 }
 
 void sendstr(char *str) {
@@ -51,6 +54,10 @@ void loop(void) {
   char frame[64];
   uint8_t address[8];
   char deviceid[32];
+
+  // auto-reset board after some time
+  if(millis() >= 60000 * HARD_RESET_MINUTES)
+    hardreset();
 
   memset(deviceid, 0, sizeof(deviceid));
 
