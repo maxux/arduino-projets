@@ -17,7 +17,8 @@ uint8_t netbuffer[512];
 uint16_t netlength = 32;
 
 #define REFRESH    60
-#define SWITCH_PIN 7
+#define SWITCH_LEFT_PIN  6
+#define SWITCH_RIGHT_PIN 7
 
 void setup() {
   Serial.begin(9600);
@@ -27,24 +28,25 @@ void setup() {
   w5100.begin(macaddr);
 
   // set initial switch off
-  pinMode(SWITCH_PIN, OUTPUT);
-  digitalWrite(SWITCH_PIN, HIGH);
+  pinMode(SWITCH_LEFT_PIN, OUTPUT);
+  digitalWrite(SWITCH_LEFT_PIN, HIGH);
+
+  pinMode(SWITCH_RIGHT_PIN, OUTPUT);
+  digitalWrite(SWITCH_RIGHT_PIN, HIGH);
 
   Serial.println("[+] sending initial frame");
   prepare_frame();
   w5100.sendFrame(netbuffer, netlength);
 }
 
-void opendoor() {
-  Serial.println("[+] open door message receive");
-
-  digitalWrite(SWITCH_PIN, LOW);
-  delay(400);
-  digitalWrite(SWITCH_PIN, HIGH);
-  delay(800);
-  digitalWrite(SWITCH_PIN, LOW);
-  delay(400);
-  digitalWrite(SWITCH_PIN, HIGH);
+void opendoor(int pin) {
+  digitalWrite(pin, LOW);
+  delay(600);
+  digitalWrite(pin, HIGH);
+  delay(300);
+  digitalWrite(pin, LOW);
+  delay(600);
+  digitalWrite(pin, HIGH);
 }
 
 void prepare_frame() {
@@ -64,7 +66,8 @@ void prepare_frame() {
   memcpy(netbuffer + 14, x, strlen(x));
 }
 
-const char *doormsg = "OPEN DOOR";
+const char *doormsgl = "OPEN DOOR LEFT";
+const char *doormsgr = "OPEN DOOR RIGHT";
 unsigned long lastsend = 0;
 
 void loop() {
@@ -84,8 +87,17 @@ void loop() {
     return;
 
   if(memcmp(netbuffer, macaddr, sizeof(macaddr)) == 0) {
-    if(memcmp(netbuffer + 14, doormsg, strlen(doormsg)) == 0) {
-      opendoor();
+    char *target = netbuffer + 14;
+    Serial.println(target);
+
+    if(memcmp(netbuffer + 14, doormsgl, strlen(doormsgl)) == 0) {
+      Serial.println("[+] open door (left) message received");
+      opendoor(SWITCH_LEFT_PIN);
+    }
+
+    if(memcmp(netbuffer + 14, doormsgr, strlen(doormsgr)) == 0) {
+      Serial.println("[+] open door (right) message received");
+      opendoor(SWITCH_RIGHT_PIN);
     }
   } 
 }
