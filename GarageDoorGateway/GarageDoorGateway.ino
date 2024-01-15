@@ -41,11 +41,20 @@ void setup() {
 
 void opendoor(int pin) {
   digitalWrite(pin, LOW);
-  delay(600);
+  delay(700);
+
   digitalWrite(pin, HIGH);
   delay(300);
+
   digitalWrite(pin, LOW);
-  delay(600);
+  delay(700);
+
+  digitalWrite(pin, HIGH);
+  delay(300);
+
+  digitalWrite(pin, LOW);
+  delay(1200);
+
   digitalWrite(pin, HIGH);
 }
 
@@ -87,9 +96,6 @@ void loop() {
     return;
 
   if(memcmp(netbuffer, macaddr, sizeof(macaddr)) == 0) {
-    char *target = netbuffer + 14;
-    Serial.println(target);
-
     if(memcmp(netbuffer + 14, doormsgl, strlen(doormsgl)) == 0) {
       Serial.println("[+] open door (left) message received");
       opendoor(SWITCH_LEFT_PIN);
