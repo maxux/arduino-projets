@@ -18,10 +18,11 @@
 
 #define FADE_DELAY 6
 #define COOLDOWN_TIME 5000
-#define DISTANCE_THRESHOLD 800
+#define DISTANCE_THRESHOLD 900
 #define MEASURE_TIMEOUT 25000 // 25ms = ~8m @ 340m/s
 #define SOUND_SPEED 340.0 / 1000
 
+int leds_maxval = 0;
 CRGB leds[TOTAL_LEDS];
 CRGB statecolor = CRGB(CRGB::Blue);
 
@@ -39,7 +40,7 @@ void setup() {
 
   digitalWrite(DST_POWER_PIN, HIGH);
 
-  FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, TOTAL_LEDS);
+  FastLED.addLeds<WS2811, LED_PIN, RGB>(leds, TOTAL_LEDS);
 
   // initial color
   for(int i = 0; i < TOTAL_LEDS; i++)
@@ -62,33 +63,45 @@ float distance() {
 
 int state = 0;
 
-void fade_in(int intensity) {
-  int maxval = (intensity == LOW_LIGHT) ? 255 : 10;
+void fade_in(CRGB target, int intensity) {
+  int maxval = (intensity == HIGH_LIGHT) ? 20 : 255;
+  CRGB current = CRGB(CRGB::Black);
 
   for(int value = 0; value < maxval; value++) {
+    current.r = scale8(target.r, value);
+    current.g = scale8(target.g, value);
+    current.b = scale8(target.b, value);
+
     for(int i = 0; i < TOTAL_LEDS; i++)
-      leds[i] = CRGB(value, value, value);
+      leds[i] = current;
     
-    value += 1;
     FastLED.show();
 
     delay(FADE_DELAY);
   }
+
+  leds_maxval = maxval;
 }
 
 void fade_out() {
-  int initval = leds[0].r;
+  CRGB initial = leds[0];
+  CRGB current = leds[0];
 
-  for(int value = initval; value > 0; value--) {
+  for(int value = 255; value > 0; value -= 10) {
+    current.r = scale8(initial.r, value);
+    current.g = scale8(initial.g, value);
+    current.b = scale8(initial.b, value);
+
     for(int i = 0; i < TOTAL_LEDS; i++)
-      leds[i] = CRGB(value, value, value);
+      leds[i] = current;
     
     FastLED.show();
-    // delay(FADE_DELAY);
+
+    delay(FADE_DELAY);
   }
 
   for(int i = 0; i < TOTAL_LEDS; i++)
-    leds[i] = CRGB(0, 0, 0);
+    leds[i] = CRGB(CRGB::Black);
 
   FastLED.show();
 }
@@ -113,11 +126,19 @@ void status_update() {
   int divider = 1;
 
   if(intens == HIGH_LIGHT)
-    divider = 15;
+    divider = 18;
 
   analogWrite(STATUS_RED, statecolor.r / divider);
   analogWrite(STATUS_GREEN, statecolor.g / divider);
   analogWrite(STATUS_BLUE, statecolor.b / divider);
+}
+
+void loopx() {
+  float mm = distance();
+  int intens = intensity_raw();
+
+  Serial.print("[+] distance: ");
+  Serial.println(mm);
 }
 
 void loop() {
@@ -144,7 +165,7 @@ void loop() {
     Serial.println((intens == LOW_LIGHT) ? "low" : "high");
 
     status_light(CRGB(CRGB::DarkOrange));
-    fade_in(intens);
+    fade_in(CRGB(Tungsten40W), intens);
 
     status_light(CRGB(CRGB::Red));
     state = 1;
