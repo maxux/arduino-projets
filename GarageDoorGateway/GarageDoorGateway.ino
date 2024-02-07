@@ -14,7 +14,7 @@ const uint8_t netdevid = 0xA0;
 Wiznet5100 w5100;
 
 uint8_t netbuffer[512];
-uint16_t netlength = 32;
+uint16_t netlength = 48;
 
 #define REFRESH    60
 #define SWITCH_LEFT_PIN  6
@@ -35,11 +35,13 @@ void setup() {
   digitalWrite(SWITCH_RIGHT_PIN, HIGH);
 
   Serial.println("[+] sending initial frame");
-  prepare_frame();
-  w5100.sendFrame(netbuffer, netlength);
+  prepare_send_frame("HEY I'M ALIVE");
 }
 
 void opendoor(int pin) {
+  // Serial.println("SIMULATE DOOR OPEN XXXX");
+  // return;
+
   digitalWrite(pin, LOW);
   delay(700);
 
@@ -58,7 +60,7 @@ void opendoor(int pin) {
   digitalWrite(pin, HIGH);
 }
 
-void prepare_frame() {
+void prepare_frame(char *payload) {
   memset(netbuffer, 0x00, sizeof(netbuffer));
 
   // destination mac address
@@ -71,8 +73,16 @@ void prepare_frame() {
   netbuffer[12] = 0x42;
   netbuffer[13] = 0xF1;
 
-  char *x = "HEY I'M ALIVE";
-  memcpy(netbuffer + 14, x, strlen(x));
+  memcpy(netbuffer + 14, payload, strlen(payload));
+}
+
+void prepare_send_frame(char *payload) {
+  prepare_frame(payload);
+
+  Serial.print("[+] sending network frame: ");
+  Serial.println(payload);
+
+  w5100.sendFrame(netbuffer, netlength);
 }
 
 const char *doormsgl = "OPEN DOOR LEFT";
@@ -87,8 +97,7 @@ void loop() {
 
     lastsend = time;
 
-    prepare_frame();
-    w5100.sendFrame(netbuffer, netlength);
+    prepare_send_frame("HEY I'M ALIVE");
   }
 
   uint16_t readlen = w5100.readFrame(netbuffer, sizeof(netbuffer));
@@ -98,11 +107,13 @@ void loop() {
   if(memcmp(netbuffer, macaddr, sizeof(macaddr)) == 0) {
     if(memcmp(netbuffer + 14, doormsgl, strlen(doormsgl)) == 0) {
       Serial.println("[+] open door (left) message received");
+      prepare_send_frame("LEFT DOOR OPEN ACK");
       opendoor(SWITCH_LEFT_PIN);
     }
 
     if(memcmp(netbuffer + 14, doormsgr, strlen(doormsgr)) == 0) {
       Serial.println("[+] open door (right) message received");
+      prepare_send_frame("RIGHT DOOR OPEN ACK");
       opendoor(SWITCH_RIGHT_PIN);
     }
   } 
