@@ -92,6 +92,10 @@ unsigned long lastsend = 0;
 void loop() {
   unsigned long time = micros();
 
+  // fix overflow
+  if(time < lastsend)
+    lastsend = 0;
+
   if(time > lastsend + (REFRESH * 1000000)) {
     Serial.println("[+] sending ping frame");
 
