@@ -1,8 +1,9 @@
 #include <FastLED.h>
 
+#define DST_TRIGGER_2_PIN 4
+#define DST_ECHO_2_PIN 5
 #define DST_TRIGGER_PIN 7
 #define DST_ECHO_PIN 6
-#define DST_POWER_PIN 12
 
 #define PHOTO_PIN 2 // analog
 #define BRIGHT_THRESHOLD 900
@@ -17,7 +18,8 @@
 #define TOTAL_LEDS 300
 
 #define FADE_DELAY 6
-#define COOLDOWN_TIME 5000
+#define TURNUP_TIME 10
+#define COOLDOWN_TIME 4000
 #define DISTANCE_THRESHOLD 900
 #define MEASURE_TIMEOUT 25000 // 25ms = ~8m @ 340m/s
 #define SOUND_SPEED 340.0 / 1000
@@ -32,13 +34,13 @@ void setup() {
 
   pinMode(DST_TRIGGER_PIN, OUTPUT);
   pinMode(DST_ECHO_PIN, INPUT);
-  pinMode(DST_POWER_PIN, OUTPUT);  // hack to use a pin as power
+  pinMode(DST_TRIGGER_2_PIN, OUTPUT);
+  pinMode(DST_ECHO_2_PIN, INPUT);
   pinMode(LED_BUILTIN, OUTPUT);
 
   // distance sensor trigger must be low
   digitalWrite(DST_TRIGGER_PIN, LOW);
-
-  digitalWrite(DST_POWER_PIN, HIGH);
+  digitalWrite(DST_TRIGGER_2_PIN, LOW);
 
   FastLED.addLeds<WS2811, LED_PIN, RGB>(leds, TOTAL_LEDS);
 
@@ -61,6 +63,18 @@ float distance() {
   return mm;
 }
 
+float distance2() {
+  digitalWrite(DST_TRIGGER_2_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(DST_TRIGGER_2_PIN, LOW);
+
+  long measure = pulseIn(DST_ECHO_2_PIN, HIGH, MEASURE_TIMEOUT);
+
+  float mm = measure / 2.0 * SOUND_SPEED;
+
+  return mm;
+}
+
 int state = 0;
 
 void fade_in(CRGB target, int intensity) {
@@ -77,7 +91,7 @@ void fade_in(CRGB target, int intensity) {
     
     FastLED.show();
 
-    delay(FADE_DELAY);
+    // delay(FADE_DELAY);
   }
 
   leds_maxval = maxval;
@@ -97,7 +111,7 @@ void fade_out() {
     
     FastLED.show();
 
-    delay(FADE_DELAY);
+    // delay(FADE_DELAY);
   }
 
   for(int i = 0; i < TOTAL_LEDS; i++)
@@ -133,6 +147,7 @@ void status_update() {
   analogWrite(STATUS_BLUE, statecolor.b / divider);
 }
 
+/*
 void loopx() {
   float mm = distance();
   int intens = intensity_raw();
@@ -140,11 +155,60 @@ void loopx() {
   Serial.print("[+] distance: ");
   Serial.println(mm);
 }
+*/
+
+double accuracy(unsigned long reqtimeout) {
+  unsigned long initial = micros();
+  unsigned long timeout = initial + (reqtimeout * 1000ul);
+  double detected = 0;
+  double checked = 0;
+
+  while(micros() < timeout) {
+    float mm = distance();
+
+    if(mm < 1) {
+      Serial.println("[+] ignoring null response from sensor");
+      continue;
+    }
+
+    Serial.print("[+] staging distance: ");
+    Serial.print(mm);
+
+    if(mm > DISTANCE_THRESHOLD) {
+      Serial.print(" - adding");
+      detected += 1;
+    }
+    
+    Serial.println("");
+    checked += 1;
+
+    delay(10);
+  }
+
+  Serial.print("[+] checking average to avoid glitch: ");
+  Serial.print(detected);
+  Serial.print(" / ");
+  Serial.println(checked);
+
+  return detected / checked;
+}
 
 void loop() {
   status_update();
 
   float mm = distance();
+
+  /*
+  float mmx = distance2();
+
+  Serial.print("x1 ");
+  Serial.print(mm);
+  Serial.print(" -- x2 ");
+  Serial.println(mmx);
+
+  delay(100);
+  return;
+  */
 
   // ignore initializing value
   if(mm < 1) {
@@ -161,6 +225,15 @@ void loop() {
   if(state == 0 && mm < DISTANCE_THRESHOLD) {
     int intens = intensity();
 
+    Serial.println("[+] presence detected, checking accuracy: ");
+    double accurate = accuracy(TURNUP_TIME);
+
+    if(accurate > 0.1) {
+      Serial.println("[+] abort, presence not detected");
+      status_light(CRGB(CRGB::Green));
+      return;
+    }
+
     Serial.print("[+] presence detected, switching on, intensity: ");
     Serial.println((intens == LOW_LIGHT) ? "low" : "high");
 
@@ -175,34 +248,9 @@ void loop() {
     Serial.println("[+] presence not detected anymore, checking average...");
     // status_light(STATUS_BLUE);
 
-    unsigned long initial = micros();
-    unsigned long timeout = initial + (COOLDOWN_TIME * 1000ul);
-    double detected = 0;
-    double checked = 0;
+    double accurate = accuracy(COOLDOWN_TIME);
 
-    while(micros() < timeout) {
-      float mm = distance();
-
-      Serial.print("[+] staging distance: ");
-      Serial.print(mm);
-
-      if(mm > DISTANCE_THRESHOLD) {
-        Serial.print(" - adding");
-        detected += 1;
-      }
-      
-      Serial.println("");
-      checked += 1;
-
-      delay(50);
-    }
-
-    Serial.print("[+] checking average to avoid glitch: ");
-    Serial.print(detected);
-    Serial.print(" / ");
-    Serial.println(checked);
-
-    if((detected / checked) < 0.95) {
+    if(accurate < 0.95) {
       Serial.println("[+] abort, presence still there");
       status_light(CRGB(CRGB::Red));
       return;
