@@ -1,6 +1,4 @@
-// #define USE_OCTOWS2811
 #include <OctoWS2811.h>
-// #include <FastLED.h>
 #include <ArduinoUniqueID.h>
 #include <QNEthernet.h>
 
@@ -17,7 +15,6 @@ typedef struct __attribute__ ((packed)) server_stats_t {
 using namespace qindesign::network;
 EthernetUDP udp(16);
 
-// #define STRIPE_PIN   1
 #define SEG_PER_LANE 8 // FIXME: 12
 #define LED_PER_SEG  120
 #define PER_LANE     (SEG_PER_LANE * LED_PER_SEG)
@@ -39,7 +36,6 @@ OctoWS2811 leds(PER_LANE, display_memory, drawing_memory, config, NUM_LANES, str
 bool netstate = false;
 bool linkinit = false;
 
-// CRGB leds[TOTAL_LEDS];
 server_stats_t mainstats = {
   .state = 0,
   .old_frames = 0,
@@ -55,35 +51,21 @@ void setup() {
 
   leds.begin();
   leds.show();
-  
-  // FastLED.setDither(0);
-  // FastLED.addLeds<NUM_LANES, WS2811, STRIPE_PIN, RGB>(leds, PER_LANE);
-  // FastLED.addLeds<OCTOWS2811>(leds, PER_LANE);
-  // FastLED.setMaxRefreshRate(30);
-  // Serial.println("[+] led initialized");
 
   pinMode(LED_BUILTIN, OUTPUT);
 
   // initializing default light
-  for(int i = 0; i < leds.numPixels(); i++) {
+  for(int i = 0; i < leds.numPixels(); i++)
     leds.setPixel(i, 10, 0, 0);
-    // leds.setPixel(i, 0x0);
-    // leds[i] = CHSV(200, 255, 10);
-  }
 
   leds.show();
-  
-  // FastLED.show();
 
   // Ethernet.setDHCPEnabled(false);
   Ethernet.setHostname("ledstage");
   Ethernet.begin();
-  // Serial.println("[+] network initialized");
 
   udp.beginWithReuse(1111);
   mainstats.state = 1;
-
-  // Serial.println("[+] server listening (port 1111)");
 }
 
 /*
@@ -120,13 +102,6 @@ void loop() {
   if(packetsize >= 0) {
     mainstats.state = 2; // frame received
 
-    /*
-    Serial.print("size: ");
-    Serial.print(packetsize);
-    Serial.print(", received: ");
-    Serial.println(received);
-    */
-
     digitalWrite(LED_BUILTIN, HIGH);
 
     uint8_t *data = (uint8_t *) udp.data();
@@ -134,9 +109,6 @@ void loop() {
     int maximum = leds.numPixels();
 
     for(int i = 0; i < packetsize; i += 3) {
-      // Serial.printf("setting led %d: %d,%d,%d\n", led, data[i], data[i + 1], data[i + 2]);
-      // // leds[led] = CRGB(data[i], data[i + 1], data[i + 2]);
-      // // led += 1;
       leds.setPixel(led, data[i], data[i + 1], data[i + 2]);
       led += 1;
 
@@ -145,8 +117,6 @@ void loop() {
     }
 
     leds.show();
-    // // FastLED.show();
-    // // FastLED.delay(10);
 
     digitalWrite(LED_BUILTIN, LOW);
 
@@ -170,12 +140,10 @@ void loop() {
 //
 // no network debug state
 //
-char base = 0;
 uint32_t lastnetcheck = 0;
 
 void waiting_network() {
   int stripes = NUM_LANES * SEG_PER_LANE;
-  char value = base;
   int maximum = leds.numPixels();
 
   for(int i = 0; i < maximum; i++)
@@ -185,17 +153,11 @@ void waiting_network() {
     int index = i * LED_PER_SEG;
 
     for(int stripe = 0; stripe <= i; stripe++) {
-      leds.setPixel(index + stripe, 10, 0, 0); // = CHSV(value++, 255, 10);
+      leds.setPixel(index + stripe, 10, 0, 0);
     }
   }
 
-  base += 1;
   leds.show();
-
-  // FastLED.show();
-  // FastLED.delay(100);
-
-  // Serial.println("[+] sending debug colors, waiting for network");
 
   if(millis() > lastnetcheck + 10000) {
     lastnetcheck = millis();
