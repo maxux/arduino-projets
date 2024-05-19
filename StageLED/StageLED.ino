@@ -1,5 +1,4 @@
 #include <OctoWS2811.h>
-#include <ArduinoUniqueID.h>
 #include <QNEthernet.h>
 
 typedef struct __attribute__ ((packed)) server_stats_t {
@@ -65,6 +64,7 @@ void setup() {
   Ethernet.begin();
 
   udp.beginWithReuse(1111);
+  memset(&mainstats, 0x00, sizeof(server_stats_t));
   mainstats.state = 1;
 }
 
@@ -129,8 +129,8 @@ void loop() {
     mainstats.time_current = millis();
     mainstats.fps = mainstats.frames - mainstats.old_frames;
 
-    // FIXME
-    udp.send("10.241.0.51", 1111, (uint8_t *) &mainstats, sizeof(mainstats));
+    // broadcasting feedback
+    udp.send("10.241.0.255", 1111, (uint8_t *) &mainstats, sizeof(mainstats));
 
     lastcheck = millis();
     mainstats.old_frames = mainstats.frames;
