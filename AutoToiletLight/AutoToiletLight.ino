@@ -17,20 +17,25 @@
 #define LED_PIN 3
 #define TOTAL_LEDS 300
 
+#define STATUS_LED_PIN 2
+#define STATUS_TOTAL_LEDS 60
+
 #define FADE_DELAY 6
 #define TURNUP_TIME 10
 #define COOLDOWN_TIME 4000
-#define DISTANCE_THRESHOLD 900
+#define DISTANCE_1_THRESHOLD 900
+#define DISTANCE_2_THRESHOLD 900
 #define MEASURE_TIMEOUT 25000 // 25ms = ~8m @ 340m/s
 #define SOUND_SPEED 340.0 / 1000
 
 int leds_maxval = 0;
 CRGB leds[TOTAL_LEDS];
+CRGB stateleds[STATUS_TOTAL_LEDS];
 CRGB statecolor = CRGB(CRGB::Blue);
 
 void setup() {
   Serial.begin(9600);
-  status_update();
+  // status_update();
 
   pinMode(DST_TRIGGER_PIN, OUTPUT);
   pinMode(DST_ECHO_PIN, INPUT);
@@ -43,10 +48,19 @@ void setup() {
   digitalWrite(DST_TRIGGER_2_PIN, LOW);
 
   FastLED.addLeds<WS2811, LED_PIN, RGB>(leds, TOTAL_LEDS);
+  FastLED.addLeds<WS2811, STATUS_LED_PIN, RGB>(stateleds, STATUS_TOTAL_LEDS);
 
   // initial color
   for(int i = 0; i < TOTAL_LEDS; i++)
     leds[i] = CRGB(0, 0, 0);
+
+  for(int i = 0; i < 10; i++)
+    stateleds[i] = CRGB(0, 255, 0);
+
+  stateleds[11] = CRGB(0, 0, 0);
+
+  for(int i = 12; i < 28; i++)
+    stateleds[i] = CRGB(255, 0, 0);
 
   FastLED.show();
 }
@@ -130,6 +144,26 @@ int intensity() {
   return (value < BRIGHT_THRESHOLD) ? LOW_LIGHT : HIGH_LIGHT;
 }
 
+void status_switch(int state) {
+  if(state == 0) {
+    for(int i = 0; i < 10; i++)
+      stateleds[i] = CRGB(0, 255, 0);
+
+    for(int i = 12; i < 28; i++)
+      stateleds[i] = CRGB(0, 0, 0);
+
+  } else if(state == 1) {
+    for(int i = 0; i < 10; i++)
+      stateleds[i] = CRGB(0, 0, 0);
+
+    for(int i = 12; i < 28; i++)
+      stateleds[i] = CRGB(255, 0, 0);
+  }
+
+  FastLED.show();
+}
+
+/*
 void status_light(CRGB color) {
   statecolor = color;
   status_update();
@@ -146,6 +180,7 @@ void status_update() {
   analogWrite(STATUS_GREEN, statecolor.g / divider);
   analogWrite(STATUS_BLUE, statecolor.b / divider);
 }
+*/
 
 /*
 void loopx() {
@@ -160,58 +195,59 @@ void loopx() {
 double accuracy(unsigned long reqtimeout) {
   unsigned long initial = micros();
   unsigned long timeout = initial + (reqtimeout * 1000ul);
-  double detected = 0;
-  double checked = 0;
+  double detected[] = {0, 0};
+  double checked[] = {0, 0};
 
   while(micros() < timeout) {
     float mm = distance();
+    float mmx = distance2();
 
-    if(mm < 1) {
+    if(mm < 1 || mmx < 1) {
       Serial.println("[+] ignoring null response from sensor");
       continue;
     }
 
     Serial.print("[+] staging distance: ");
     Serial.print(mm);
+    Serial.print(", ");
+    Serial.print(mmx);
 
-    if(mm > DISTANCE_THRESHOLD) {
+    if(mm > DISTANCE_1_THRESHOLD) {
       Serial.print(" - adding");
-      detected += 1;
+      detected[0] += 1;
+    }
+
+    if(mmx > DISTANCE_2_THRESHOLD) {
+      Serial.print(" - adding");
+      detected[1] += 1;
     }
     
     Serial.println("");
-    checked += 1;
+    checked[0] += 1;
+    checked[1] += 1;
 
     delay(10);
   }
 
   Serial.print("[+] checking average to avoid glitch: ");
-  Serial.print(detected);
+  Serial.print(detected[0]);
   Serial.print(" / ");
-  Serial.println(checked);
+  Serial.print(checked[0]);
+  Serial.print(detected[1]);
+  Serial.print(" / ");
+  Serial.println(checked[1]);
 
-  return detected / checked;
+  return ((detected[0] / checked[0]) + (detected[1] / checked[1])) / 2;
 }
 
 void loop() {
-  status_update();
+  // status_update();
 
   float mm = distance();
-
-  /*
   float mmx = distance2();
 
-  Serial.print("x1 ");
-  Serial.print(mm);
-  Serial.print(" -- x2 ");
-  Serial.println(mmx);
-
-  delay(100);
-  return;
-  */
-
   // ignore initializing value
-  if(mm < 1) {
+  if(mm < 1 || mmx < 1) {
     delay(100);
     return;
   }
@@ -219,10 +255,12 @@ void loop() {
   int intens = intensity_raw();
   Serial.print("[+] distance: ");
   Serial.print(mm);
+  Serial.print(", ");
+  Serial.print(mmx);
   Serial.print(", intensity: ");
   Serial.println(intens, DEC);
 
-  if(state == 0 && mm < DISTANCE_THRESHOLD) {
+  if(state == 0 && mm < DISTANCE_1_THRESHOLD && mmx < DISTANCE_2_THRESHOLD) {
     int intens = intensity();
 
     Serial.println("[+] presence detected, checking accuracy: ");
@@ -230,21 +268,24 @@ void loop() {
 
     if(accurate > 0.1) {
       Serial.println("[+] abort, presence not detected");
-      status_light(CRGB(CRGB::Green));
+      // status_light(CRGB(CRGB::Green));
+      status_switch(0);
       return;
     }
 
     Serial.print("[+] presence detected, switching on, intensity: ");
     Serial.println((intens == LOW_LIGHT) ? "low" : "high");
 
-    status_light(CRGB(CRGB::DarkOrange));
+    // status_light(CRGB(CRGB::DarkOrange));
+    status_switch(1);
     fade_in(CRGB(Tungsten40W), intens);
 
-    status_light(CRGB(CRGB::Red));
+    // status_light(CRGB(CRGB::Red));
+    status_switch(1);
     state = 1;
   }
   
-  if(state == 1 && mm > DISTANCE_THRESHOLD) {
+  if(state == 1 && mm > DISTANCE_1_THRESHOLD && mmx > DISTANCE_2_THRESHOLD) {
     Serial.println("[+] presence not detected anymore, checking average...");
     // status_light(STATUS_BLUE);
 
@@ -252,13 +293,15 @@ void loop() {
 
     if(accurate < 0.95) {
       Serial.println("[+] abort, presence still there");
-      status_light(CRGB(CRGB::Red));
+      // status_light(CRGB(CRGB::Red));
+      status_switch(1);
       return;
     }
     
     Serial.println("[+] powering off...");
     fade_out();
-    status_light(CRGB(CRGB::Green));
+    // status_light(CRGB(CRGB::Green));
+    status_switch(0);
 
     state = 0;
   }
