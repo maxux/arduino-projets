@@ -1,8 +1,8 @@
 #include <FastLED.h>
 #include <ArduinoUniqueID.h>
 
-#define STRIPE_PIN   7
-#define CLONE_PIN    8
+#define STRIPE_PIN   8
+#define CLONE_PIN    9
 #define PER_LANE     120
 #define NUM_LANES    4
 #define TOTAL_LEDS   (NUM_LANES * PER_LANE)
