@@ -5,7 +5,7 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
 }
 
-int pins[] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9};
+int pins[] = {A15, A14, A13, A12, A11, A4, A3, A2, A1, A0};
 float pinbar[] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
 float pressure(int pin) {
