@@ -1,49 +1,41 @@
-int sensorPin = A3;
-float R1 = 11000.0;
-float R2 = 2200.0;
+int vdc30_pin = A2;
+int vdc15_pin = A3;
+
+float vdc30_r1 = 110000.0;  // 30 VDC max.
+float vdc30_r2 = 22000.0;
+
+float vdc15_r1 = 200000.0;  // 15 VDC max.
+float vdc15_r2 = 100000.0;
 
 void setup() {
   Serial.begin(9600);
   Serial.println("init: magibux hardware monitoring");
 
-  // 5v power hack for the other side of the board
-  pinMode(12, OUTPUT);
-  digitalWrite(12, HIGH);
-
   pinMode(LED_BUILTIN, OUTPUT);
 }
 
-float readVoltage() {
-   float sensorValue = analogRead(sensorPin);
-   float vout = (sensorValue * 5.0) / 1024.0; 
-   float vin = vout / (R2/(R1+R2));   
+float voltage_read(int source, float r1, float r2) {
+   float value = analogRead(source);
+   float vout = (value * 5.0) / 1024.0; 
+   float vin = vout / (r2 / (r1 + r2));
+
    return vin;
-}
-
-int pins[] = {A0, A1};
-char *names[] = {"press0", "press1"};  //, "press2", "press3", "press4", "press5"}
-
-void pressure(char *name, int pin) {
-  int a = analogRead(pin);
-  float bar = a / 1024.0;
-
-  Serial.print(name);
-  Serial.print(": ");
-  Serial.print(bar * 10);
-  Serial.println(" bar");
 }
 
 void loop() {
   digitalWrite(LED_BUILTIN, HIGH);
   
-  // float voltage = readVoltage();
-  // Serial.print("voltage: ");
-  // Serial.print(voltage);
-  // Serial.println(" v");
+  float voltage30 = voltage_read(vdc30_pin, vdc30_r1, vdc30_r2);
+  Serial.print("input 30v: ");
+  Serial.print(voltage30);
+  Serial.println(" v");
 
-  for(int i = 0; i < sizeof(pins) / sizeof(int); i++) {
-    pressure(names[i], pins[i]);
-  }
+  float voltage15 = voltage_read(vdc15_pin, vdc15_r1, vdc15_r2);
+  Serial.print("input 15v: ");
+  Serial.print(voltage15);
+  Serial.println(" v");
+
+  digitalWrite(LED_BUILTIN, LOW);
 
   delay(100);
 }
