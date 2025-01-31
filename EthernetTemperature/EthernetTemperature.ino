@@ -3,6 +3,7 @@
 #include <w5100.h>
 
 #define ONE_WIRE_BUS 8
+#define POWER_SWITCH_PIN 9
 
 OneWire oneWire(ONE_WIRE_BUS);  
 DallasTemperature sensors(&oneWire);
@@ -37,8 +38,8 @@ void setup() {
   Serial.println("[+] initializing temperature debug");
 
   Serial.println("[+] powering on");
-  pinMode(9, OUTPUT);
-  digitalWrite(9, 255);
+  pinMode(POWER_SWITCH_PIN, OUTPUT);
+  digitalWrite(POWER_SWITCH_PIN, HIGH);
   
   delay(1000);
 
